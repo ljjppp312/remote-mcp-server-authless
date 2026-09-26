@@ -2,6 +2,15 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
 import { z } from "zod";
 
+const CORS: Record<string, string> = {
+	"Access-Control-Allow-Origin": "*",
+	"Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+	"Access-Control-Allow-Headers":
+		"Content-Type, Authorization, Accept, Mcp-Session-Id, mcp-protocol-version, last-event-id",
+	"Access-Control-Expose-Headers": "Mcp-Session-Id",
+	"Access-Control-Max-Age": "86400",
+};
+
 function createServer() {
 	const server = new McpServer({
 		name: "Sequential Thinking",
@@ -13,7 +22,7 @@ function createServer() {
 		{
 			title: "Sequential Thinking",
 			description:
-				"A detailed tool for dynamic and reflective problem-solving through thoughts. This tool helps you analyze problems through a flexible thinking process that can adapt and evolve. Each thought can build on, question, or revise previous insights as understanding deepens. When to use: breaking down complex problems into steps; planning and design with room for revision; analysis that might need course correction; problems where the full scope is not clear initially; multi-step solutions that require context preservation.",
+				"A detailed tool for dynamic and reflective problem-solving through thoughts. Each thought can build on, question, or revise previous insights as understanding deepens. Use for breaking down complex problems into steps, planning and design with room for revision, analysis that may need course correction, and multi-step solutions that require context preservation.",
 			inputSchema: z.object({
 				thought: z.string().describe("Your current thinking step"),
 				nextThoughtNeeded: z
@@ -96,8 +105,21 @@ function createServer() {
 }
 
 const handler = createMcpHandler(createServer);
+
 export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
-		return handler(request, env, ctx);
+	async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+		if (request.method === "OPTIONS") {
+			return new Response(null, { status: 204, headers: CORS });
+		}
+		const response = await handler(request, env, ctx);
+		const headers = new Headers(response.headers);
+		for (const [key, value] of Object.entries(CORS)) {
+			headers.set(key, value);
+		}
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers,
+		});
 	},
 } satisfies ExportedHandler<Env>;
